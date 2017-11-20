@@ -77,7 +77,28 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        best_score = float("inf")
+        best_model = None
+
+        for num_states in range(self.min_n_components, self.max_n_components):
+            try:
+                
+                # Train HMM model
+                hmm_model = self.base_model(num_states)
+
+                if hmm_model is not None:
+                    # Calculate BIC score
+                    logL      = hmm_model.score(self.X, self.lengths)
+                    p         = num_states * (self.X.shape[1] * 2 + 1)
+                    logN      = np.log(len(self.X))
+                    BIC_score = -2 * logL + p * logN
+
+                    if best_score > BIC_score:
+                        best_score = BIC_score
+                        best_model = hmm_model
+            except:
+                pass
+        return best_model
 
 
 class SelectorDIC(ModelSelector):
@@ -94,8 +115,30 @@ class SelectorDIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        #self.verbose =True
+        best_model = None
+        best_score = float('-inf')
 
+        for num_states in range(self.min_n_components, self.max_n_components):
+            try:
+                hmm_model = self.base_model(num_states)
+                if hmm_model is not None:
+                    score  = hmm_model.score(self.X, self.lengths)
+                    scores = 0.0
+                    for word in filter(lambda w : w != self.this_word, self.words):
+                        X, lengths = self.hwords[word]
+                        scores    += hmm_model.score(X, lengths)
+                        
+                    dic_score = score - scores / (len(self.words) - 1)
+                    if best_score < dic_score:
+                        # Swap best model
+                        best_model = dic_score
+                        best_model = hmm_model
+                        if self.verbose:
+                            print("Best score : {}, for model with {} states".format(best_score, num_states))
+            except:
+                pass
+        return best_model
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
@@ -106,4 +149,46 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+        best_score      = float('-inf')
+        best_model      = None 
+        splits          = min(3, len(self.sequences))
+        split_methods   = KFold(n_splits = 3, shuffle = False, random_state = None)
+
+        #print("Start .... ")
+        for num_states in range(self.min_n_components, self.max_n_components):
+            scores = []
+            try:
+                # We need enough data to split.
+                if len(self.sequences) > 2:
+                    for train, test in split_methods.split(self.sequences): 
+                        self.X, self.lengths   = combine_sequences(train, self.sequences)
+                        X_test,  test_lengths  = combine_sequences(test, self.sequences)
+
+                        hmm_model = self.base_model(num_states)
+                        if hmm_model is not None:
+                            #print("Compute score")
+                            score  = hmm_model.score(X_test, test_lengths)
+                            #print("Score : {}".format(score))
+                            scores.append(score)
+                            #print("Scores : {}".format(len(scores)))
+
+                            mean_score = np.mean(scores)
+                            #print("Mean score so far is {}".format(mean))
+                            if best_score < mean_score:
+                                #print("1. Best score : {}".format(best_score))
+                                best_score = mean_score
+                                best_model = hmm_model
+                                #print("2. Best score : {}".format(best_score))
+                else:
+                    hmm_model = self.base_model(num_states)
+                    if hmm_model is not None:
+                        score  = hmm_model.score(self.X, self.lengths)
+                        if best_score < score:
+                            best_score = score
+                            best_model = hmm_model
+
+
+            except:
+                pass
+        #print("End ... {}".format(best_model is not None))
+        return best_model
