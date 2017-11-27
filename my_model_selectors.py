@@ -108,7 +108,7 @@ class SelectorDIC(ModelSelector):
     Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
     https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
-    DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
+    DIC = log(P(X(i)) - 1/(M-1)SUM(l)og(P(X(all but i)
     '''
 
     def select(self):
@@ -118,6 +118,7 @@ class SelectorDIC(ModelSelector):
         #self.verbose =True
         best_model = None
         best_score = float('-inf')
+        M          = len(self.words)
 
         for num_states in range(self.min_n_components, self.max_n_components):
             try:
@@ -129,7 +130,7 @@ class SelectorDIC(ModelSelector):
                         X, lengths = self.hwords[word]
                         scores    += hmm_model.score(X, lengths)
                         
-                    dic_score = score - scores / (len(self.words) - 1)
+                    dic_score = score - scores / (M - 1)
                     if best_score < dic_score:
                         # Swap best model
                         best_model = dic_score
@@ -166,10 +167,10 @@ class SelectorCV(ModelSelector):
 
                         hmm_model = self.base_model(num_states)
                         if hmm_model is not None:
-                            #print("Compute score")
+                            #print("Compute score") 
                             score  = hmm_model.score(X_test, test_lengths)
                             #print("Score : {}".format(score))
-                            scores.append(score)
+                            scores.append(score)    
                             #print("Scores : {}".format(len(scores)))
 
                             mean_score = np.mean(scores)
